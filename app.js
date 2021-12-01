@@ -8,20 +8,11 @@ const app = express(); //the express() will add a bunch of methods to our app va
 // called middleware because it stands between the request and the response
 app.use(express.json());
 
-// app.get('/', (req, res) => {
-//     //res.status(200).send('Hello form server side');
-//     res.status(200).json({ message: 'Hello form server side', app: 'Natours' });
-// });
-
-// app.post('/', (req, res) => {
-//     res.send('Post to this endpoint');
-// });
-
 const tours = JSON.parse(fs.readFileSync(`${__dirname}/dev-data/data/tours-simple.json`));
 
-// use v2 in order to specify the api version. you can branch off to v2 and not break the v1 of the api
+// use v1 in order to specify the api version. you can branch off to v2 and not break the v1 of the api
 // we call the callback the route handler
-app.get('/api/v1/tours', (req, res) => {
+const getAllTours = (req, res) => {
   // Using the JSEND data specification to send json. status and data properties
   res.status(200).json({
     status: 'success', // can either have success(code 200, 201, etc), fail, or error
@@ -30,19 +21,11 @@ app.get('/api/v1/tours', (req, res) => {
       tours: tours, // in es6 you can just write tours isf the key and the value are the same. You do need to make sure the property matches the endpoint name
     },
   });
-});
+};
 
 // you can also have optional parameters using :id?
-app.get('/api/v1/tours/:id', (req, res) => {
+const getTour = (req, res) => {
   const id = req.params.id * 1; // trick to convert string to number
-
-  // // simple temporary ID check
-  // if (id > tours.length) {
-  //   return res.status(404).json({
-  //     status: 'fail',
-  //     message: 'invalid ID',
-  //   });
-  // }
 
   const tour = tours.find((el) => el.id === id);
 
@@ -59,9 +42,9 @@ app.get('/api/v1/tours/:id', (req, res) => {
       tour,
     },
   });
-});
+};
 
-app.post('/api/v1/tours', (req, res) => {
+const createTour = (req, res) => {
   console.log(req.body);
 
   const newID = tours[tours.length - 1].id + 1;
@@ -78,9 +61,9 @@ app.post('/api/v1/tours', (req, res) => {
       },
     });
   });
-});
+};
 
-app.patch('/api/v1/tours/:id', (req, res) => {
+const updateTour = (req, res) => {
   const tour = tours.find((el) => el.id == req.params.id);
 
   if (!tour) {
@@ -96,9 +79,9 @@ app.patch('/api/v1/tours/:id', (req, res) => {
       tour: '<Updated tour here>',
     },
   });
-});
+};
 
-app.delete('/api/v1/tours/:id', (req, res) => {
+const deleteTour = (req, res) => {
   const tour = tours.find((el) => el.id == req.params.id);
 
   if (!tour) {
@@ -115,10 +98,19 @@ app.delete('/api/v1/tours/:id', (req, res) => {
       data: null,
     },
   });
-});
+};
+
+// app.get('/api/v1/tours', getAllTours);
+// app.get('/api/v1/tours/:id', getTour);
+// app.post('/api/v1/tours', createTour);
+// app.patch('/api/v1/tours/:id', updateTour);
+// app.delete('/api/v1/tours/:id', deleteTour);
+
+app.route('/api/v1/tours').get(getAllTours).post(createTour);
+
+app.route('/api/v1/tours/:id').get(getTour).patch(updateTour).delete(deleteTour);
 
 const port = 3000;
-
 app.listen(port, () => {
   console.log(`App running on port ${port}`);
 });
