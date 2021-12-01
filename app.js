@@ -1,5 +1,6 @@
 const fs = require('fs');
 const express = require('express');
+const { application } = require('express');
 
 const app = express(); //the express() will add a bunch of methods to our app variable
 
@@ -20,7 +21,7 @@ const tours = JSON.parse(fs.readFileSync(`${__dirname}/dev-data/data/tours-simpl
 
 // use v2 in order to specify the api version. you can branch off to v2 and not break the v1 of the api
 // we call the callback the route handler
-app.get('/api/v2/tours', (req, res) => {
+app.get('/api/v1/tours', (req, res) => {
   // Using the JSEND data specification to send json. status and data properties
   res.status(200).json({
     status: 'success', // can either have success(code 200, 201, etc), fail, or error
@@ -31,7 +32,36 @@ app.get('/api/v2/tours', (req, res) => {
   });
 });
 
-app.post('/api/v2/tours', (req, res) => {
+// you can also have optional parameters using :id?
+app.get('/api/v1/tours/:id', (req, res) => {
+  const id = req.params.id * 1; // trick to convert string to number
+
+  // // simple temporary ID check
+  // if (id > tours.length) {
+  //   return res.status(404).json({
+  //     status: 'fail',
+  //     message: 'invalid ID',
+  //   });
+  // }
+
+  const tour = tours.find((el) => el.id === id);
+
+  if (!tour) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'invalid ID',
+    });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      tour,
+    },
+  });
+});
+
+app.post('/api/v1/tours', (req, res) => {
   console.log(req.body);
 
   const newID = tours[tours.length - 1].id + 1;
@@ -47,6 +77,43 @@ app.post('/api/v2/tours', (req, res) => {
         tour: newTour,
       },
     });
+  });
+});
+
+app.patch('/api/v1/tours/:id', (req, res) => {
+  const tour = tours.find((el) => el.id == req.params.id);
+
+  if (!tour) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'invalid ID',
+    });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      tour: '<Updated tour here>',
+    },
+  });
+});
+
+app.delete('/api/v1/tours/:id', (req, res) => {
+  const tour = tours.find((el) => el.id == req.params.id);
+
+  if (!tour) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'invalid ID',
+    });
+  }
+
+  // 204 means no content
+  res.status(204).json({
+    status: 'success',
+    data: {
+      data: null,
+    },
   });
 });
 
