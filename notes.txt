@@ -1,0 +1,25 @@
+REST API's
+- a piece of software that can be used by another piece of software to allow them to talk to each other 
+- Representational State Transfer. Way of building apis to make them easy to consume. 
+  - separate API into logical 'resources'
+  - Expose (make the resources available) structured, 'resource'-based urls
+  - use HTTP Methods to crud and not the url
+  - send data as JSON
+  - Be STATLESS
+- REST architecture
+  - all the data we want to share in  the api should be divided into logical resource
+  - Object or representation of something, which has data assiciated with it. any info that can be named can be a 'resource'. Like tours, users or reviews. these are not 'verbs' tey are names
+  - https://www.natours.com/addNewTour is the url. /addNewTour is the endpoint
+    - This is a bad endpoint because it violates rule 3 above. Endpoints should only contain teh 'resource' and NOT the actions that can be performed on them. otherwise it will get messy
+    - GET  /tours/7    use plural of the resource 
+    - POST /tours    server should automatically figure out the id
+    - PUT (client sends entire new object to update) of PATCH (client only sends part of object) /tours/7
+    - DELETE /tours/7
+    - these HTTP mehtods allow us to perform CRUD operations 
+    - getToursByUser --> GET /users/3/tours
+    - deleteToursByUser  --->  DELETE /users/3/tours/9
+- stateless
+  - all state is handled on the client. the request must contain ALL the info necessarry to process a certian request. the server should NOT have to remeber previous requests
+  - Examples: loggedIn,   currentPage. state refers to a piece of data in the app that might change overtime
+  - GET /tours/nextPage  this is bad because the server would need ot know what the current page is in order to send teh currentpage +1. it would have to handel the state server side
+    - use GET /tours/page/6 instead
