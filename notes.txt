@@ -33,3 +33,4 @@ Request Response Cycle
   - the req and res objects that are created go through each middleware where they are processed, or some sort of function is called. At the end of each middleware, a next() function 
     is called which calles which executes the next middlewear whigh the same req and res objects.  
   - a request comes in from the client, we get the request and process it with the middlewares and then send it back on teh final middleware (route handler)
+- Go to express.com -> resources > middleware to get a list of all the middleware express reccommends. there are things like body-parser listed there
