@@ -23,3 +23,13 @@ REST API's
   - Examples: loggedIn,   currentPage. state refers to a piece of data in the app that might change overtime
   - GET /tours/nextPage  this is bad because the server would need ot know what the current page is in order to send teh currentpage +1. it would have to handel the state server side
     - use GET /tours/page/6 instead
+
+Request Response Cycle
+- when the express server recieves a request, the express app will then create a request and response object. The server processes the data in order to send back a meaningful response
+- Middleware
+  - in teh middle of recieving the request and sending the response. in express, essentially everything is a middleware. route functions can be intrepreted as middleware function 
+    that only execute for specific routes
+  - The middleware stack: the order thta middleware is executed is teh same as the order they are defined in teh code
+  - the req and res objects that are created go through each middleware where they are processed, or some sort of function is called. At the end of each middleware, a next() function 
+    is called which calles which executes the next middlewear whigh the same req and res objects.  
+  - a request comes in from the client, we get the request and process it with the middlewares and then send it back on teh final middleware (route handler)
