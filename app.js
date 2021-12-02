@@ -164,10 +164,21 @@ const deleteUser = (req, res) => {
 // ROUTES
 //
 
-app.route('/api/v1/tours').get(getAllTours).post(createTour);
-app.route('/api/v1/tours/:id').get(getTour).patch(updateTour).delete(deleteTour);
-app.route('/api/v1/users').get(getAllUsers).post(createUser);
-app.route('/api/v1/users/:id').get(getUser).patch(updateUser).delete(deleteUser);
+// tourRouter is like a mini applicatoin within our own application. tourRouter has its own routes. our request will then go into here and find its appropriate route
+// if the route from within tourRouter is "/:id" it will hit the id route and it will run one of the handlers.
+const tourRouter = express.Router();
+const userRouter = express.Router();
+
+tourRouter.route('/').get(getAllTours).post(createTour); // We no longer need to specify the full route "/api/v1/tours" because we are using the tourRouter middleware that already specifies that we are on teh "api/v1/tours" route
+tourRouter.route('/:id').get(getTour).patch(updateTour).delete(deleteTour);
+
+userRouter.route('/').get(getAllUsers).post(createUser);
+userRouter.route('/:id').get(getUser).patch(updateUser).delete(deleteUser);
+
+// here we enable a middlewear function called tourRouter to be used on the specific route /api/v1/tours
+// when a request hits the server, it will go down the middleware stack untill it higs this function. if the route matches, it will then call the tourRouter() middleware func below
+app.use('/api/v1/tours', tourRouter);
+app.use('/api/v1/users', userRouter); // this is called mounting the handler. mounting a new router (userRouter) on a route (/api/v1/user)
 
 // SERVER
 //
