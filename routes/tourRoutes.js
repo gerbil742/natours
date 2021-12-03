@@ -1,14 +1,14 @@
 const express = require('express');
 const tourController = require('./../controllers/tourController');
 
-// tourRouter is like a mini applicatoin within our own application. tourRouter has its own routes. our request will then go into here and find its appropriate route
-// if the route from within tourRouter is "/:id" it will hit the id route and it will run one of the handlers.
 const router = express.Router();
 
+router.param('id', tourController.checkID); // checkID() gets added to the middleware stack
+
 router
-  .route('/') // We no longer need to specify the full route "/api/v1/tours" because we are using the tourRouter middleware that already specifies that we are on teh "api/v1/tours" route
+  .route('/')
   .get(tourController.getAllTours)
-  .post(tourController.createTour);
+  .post(tourController.checkTour, tourController.createTour); // chaining multiple middlewares together
 router
   .route('/:id')
   .get(tourController.getTour)

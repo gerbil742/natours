@@ -1,30 +1,12 @@
-// All the handlers for the tour route can go in a separate file
-
 const fs = require('fs');
 
 const tours = JSON.parse(
   fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`)
 );
 
-// use v1 in order to specify the api version. you can branch off to v2 and not break the v1 of the api
-// we call the callback the route handler
-exports.getAllTours = (req, res) => {
-  // Using the JSEND data specification to send json. status and data properties
-  res.status(200).json({
-    status: 'success', // can either have success(code 200, 201, etc), fail, or error
-    results: tours.length,
-    requestedAt: req.requestTime,
-    data: {
-      tours: tours, // in es6 you can just write tours isf the key and the value are the same. You do need to make sure the property matches the endpoint name
-    },
-  });
-};
-
-// you can also have optional parameters using :id?
-exports.getTour = (req, res) => {
-  const id = req.params.id * 1; // trick to convert string to number
-
-  const tour = tours.find((el) => el.id === id);
+exports.checkID = (req, res, next, val) => {
+  const tour = tours.find((el) => el.id == req.params.id);
+  console.log('tour id is ' + val);
 
   if (!tour) {
     return res.status(404).json({
@@ -32,11 +14,43 @@ exports.getTour = (req, res) => {
       message: 'invalid ID',
     });
   }
+  next();
+};
+
+exports.checkTour = (req, res, next) => {
+  const tour = req.body;
+
+  const price = tour.price;
+  if (!req.body.name || price == null) {
+    return res.status(400).json({
+      status: 'fail',
+      message: 'Missing name or Price',
+    });
+  }
+
+  next();
+};
+
+exports.getAllTours = (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    results: tours.length,
+    requestedAt: req.requestTime,
+    data: {
+      tours: tours,
+    },
+  });
+};
+
+exports.getTour = (req, res) => {
+  const id = req.params.id * 1; // trick to convert string to number
+
+  const tour = tours.find((el) => el.id === id);
 
   res.status(200).json({
     status: 'success',
     data: {
-      tour,
+      tour, // es6. both fields are teh same so only 1 is needed
     },
   });
 };
@@ -53,7 +67,6 @@ exports.createTour = (req, res) => {
     `${__dirname}/dev-data/data/tours-simple.json`,
     JSON.stringify(tours),
     (err) => {
-      // 201 means created. 200 means OK
       res.status(201).json({
         status: 'success',
         data: {
@@ -67,13 +80,6 @@ exports.createTour = (req, res) => {
 exports.updateTour = (req, res) => {
   const tour = tours.find((el) => el.id == req.params.id);
 
-  if (!tour) {
-    return res.status(404).json({
-      status: 'fail',
-      message: 'invalid ID',
-    });
-  }
-
   res.status(200).json({
     status: 'success',
     data: {
@@ -85,14 +91,6 @@ exports.updateTour = (req, res) => {
 exports.deleteTour = (req, res) => {
   const tour = tours.find((el) => el.id == req.params.id);
 
-  if (!tour) {
-    return res.status(404).json({
-      status: 'fail',
-      message: 'invalid ID',
-    });
-  }
-
-  // 204 means no content
   res.status(204).json({
     status: 'success',
     data: {
