@@ -34,3 +34,7 @@ Request Response Cycle
     is called which calles which executes the next middlewear whigh the same req and res objects.  
   - a request comes in from the client, we get the request and process it with the middlewares and then send it back on teh final middleware (route handler)
 - Go to express.com -> resources > middleware to get a list of all the middleware express reccommends. there are things like body-parser listed there
+- Flow: 1st, server is set to listen in server.js. a request comes in
+  we go in to app.js and it goes down the middleware stack untill it hits the matching route then it gets sent to its corresponding handler
+  Then, once in its route it will then execute its corresponding controller 
+  finally, the controller will send back a response and end the request/response cycle
