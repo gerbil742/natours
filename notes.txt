@@ -116,3 +116,11 @@ STATUS codes
       tours: tours, // in es6 you can just write tours if the key and the value are the same. You do need to make sure the property matches the endpoint name
     },
   })
+
+
+ES lint
+- scans code to find bad coding pratices or potential coding errors
+- install extension eslint
+  -  npm i eslint prettier eslint-config-prettier eslint-plugin-prettier eslint-config-airbnb eslint-plugin-node eslint-plugin-import eslint-plugin-jsx eslint-plugin-react --save-dev
+  - extra pluggins are needed for the airbnb style guide to work
+  - next make config files for both prettire and eslint
