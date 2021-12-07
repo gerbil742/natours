@@ -124,3 +124,20 @@ ES lint
   -  npm i eslint prettier eslint-config-prettier eslint-plugin-prettier eslint-config-airbnb eslint-plugin-node eslint-plugin-import eslint-plugin-jsx eslint-plugin-react --save-dev
   - extra pluggins are needed for the airbnb style guide to work
   - next make config files for both prettire and eslint
+
+MONGO DB atlas 
+info in config file
+
+-crate a project in atlas, then create a cluster for the project
+-a cluster is like an instance of our database
+
+Connecting app to a database
+- npm i mongoose
+  require mongoose in the server.js file then pass in the connection string into mongoose
+- mongoose.connect() returns a promise. so we can use the .then() mentod. when promise if fuffilled, con will be the resolved value of the promise
+- the "use*" connect options are jsut for getting rid of some depreication warnings
+
+
+Mongoose
+- Mongoose is a layer of abstraction over mongodb just like express is a layer on top of node. a object data modeling librarey, like mongoose,  is a way for us to write js code to interact with a database.
+-  
