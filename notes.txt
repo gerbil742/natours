@@ -140,4 +140,34 @@ Connecting app to a database
 
 Mongoose
 - Mongoose is a layer of abstraction over mongodb just like express is a layer on top of node. a object data modeling librarey, like mongoose,  is a way for us to write js code to interact with a database.
--  
+- mongoose is all about moddles. which are like blueprints for creating documents. you can also crud documents with models. 
+- to create a model you need a schema. 
+  const tourSchema = new mongoose.Schema({  // pass in the schema as an object
+  name: {
+    type: String,     // these are schema options. pass in the properties as an object
+    required: [true, 'A tour must have a name'],    // you can also pass in an error string in case the name is omitted. this line is callec a validator
+  },
+  rating: Number,
+  price: {
+    type: Number,
+    required: true
+  }
+})
+
+const Tour = mongoose.model('Tour', tourSchema);   /// use uppercase for any models or class names. 'Tour' is the model name
+
+- Create a new document from our Tour Schema. like using a class constructor
+const testTour = new Tour({   testTour is an instance of the Tour model
+  name: 'The Mountain Hiker',
+  rating: 4.7,
+  price: 497,
+});
+
+testTour
+  .save()  // to save a documetn to the db its as simple as runing this function. 
+  .then((doc) => {    .save() returns a promise. when fuffilled it returns the document we just saved to the db
+    console.log(doc);
+  })
+  .catch((err) => {
+    console.log('ERROR ', err);
+  });
