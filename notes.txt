@@ -164,10 +164,62 @@ const testTour = new Tour({   testTour is an instance of the Tour model
 });
 
 testTour
-  .save()  // to save a documetn to the db its as simple as runing this function. 
+  .save()  // to save a documetn to the db its as simple as runing this function. a collection will automatically be created if none exists for that model
   .then((doc) => {    .save() returns a promise. when fuffilled it returns the document we just saved to the db
     console.log(doc);
   })
   .catch((err) => {
     console.log('ERROR ', err);
   });
+
+MVC architecture
+- Model layer refers to application data and business logic
+- Controller layer handle the apps requests interact with models and send back respoonses to the client ( called the applicaton logic)
+- View layer for a graphical interface. consists of teh templates we use to generate the view (the website sent back to the client) this is called the presentation logic
+- mvc allows for a more modular app, which is good for scaling and easier to maintain
+- Application logic vs Business logic
+  - App logic is code that is only concerned about the apps implementation, not the underlying business problem were trying to solve (e.g. showing and selling tours). Code that makes the actually app work
+    - managing requests and responses. more about technical stuff. a bridge between model and view layers
+  - Bis logic Code that actually solves the business problem we set out to solve. Code directly related to how the bis works, what the bis needs, and the bisness rules
+    - Creating new tours in the db. checking if user's password is correct, validating user input data. ensuring only users who bought a tour can review it. Code for when people use the product and services
+- Fat models/thin controllers: offload as much logic as possible into the models and keep controllers as simple and lean as possible
+
+
+Writing to test json file
+exports.createTour = (req, res) => {
+  console.log(req.body);
+
+  const newID = tours[tours.length - 1].id + 1;
+  const id = { id: newID };
+  const newTour = Object.assign(id, req.body); // this creates a new object by merging 2 existion objects together. do it like this to not mutate the origional body object.
+
+  tours.push(newTour);
+
+  fs.writeFile(
+    `${__dirname}/dev-data/data/tours-simple.json`,
+    JSON.stringify(tours),
+    (err) => {
+      if (err) return console.log('error writing file');
+      res.status(201).json({
+        status: 'success',
+        data: {
+          tour: newTour,
+        },
+      });
+    }
+  );
+};
+
+Check ID middleware
+exports.checkID = (req, res, next, val) => {
+  eslint-disable-next-line eqeqeq
+  const tour = tours.find((el) => el.id == req.params.id);
+  console.log(`tour id is ${val}`);
+  if (!tour) {
+    return res.status(404).json({
+      status: 'fail',
+      message: 'invalid ID',
+    });
+  }
+  next();
+};
