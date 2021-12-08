@@ -8,7 +8,7 @@ const router = express.Router();
 router
   .route('/')
   .get(tourController.getAllTours)
-  .post(tourController.checkTour, tourController.createTour); // chaining multiple middlewares together
+  .post(tourController.createTour); // chaining multiple middlewares together
 router
   .route('/:id')
   .get(tourController.getTour)
