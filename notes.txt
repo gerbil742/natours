@@ -255,6 +255,8 @@ Filtering data
 
 There are multiple ways to use the db query
 
+let query = Tour.find(JSON.parse(queryStr));    This creates a Query object so that we can chain multiple methods from teh Query class to it and then execute it later with await
+
 const tours = await Tour.find({   // returns an array of the documents
   duration: 5,
   difficulty: 'easy',
@@ -298,3 +300,8 @@ Ailasing
 - We minipulate the query object by using middleware functions to prefill the fields in the url
   First the request goes through the /top-5-cheap route and then the aliasTopTours middleware gets executed. after teh fields are set in teh middleware, the getAllTours func 
   gets run with all the params already set. 
+
+Features class
+- we refactored the code so that all the api features are in their own class.
+- we need to return this at the end of each method so that we are able to chain mehtod after method. This is the object itself, which has access to all its own methods
+- we create a new object of the apifeatures class. we pass in the query object, and the query string that come from express. 
