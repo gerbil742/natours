@@ -247,3 +247,54 @@ Creating a Tour
    newTours.save();   the document has lots of methods we can use like save 
 
    using Tour.create({}) is calling the method directly on the tour schema. it also reurns a promise
+
+Filtering data
+- use the ? to alow the user to filter data.
+  http://localhost:3000/api/v1/tours?duration=5&difficulty=easy
+- req.query is how you get an object with all the query params 
+
+There are multiple ways to use the db query
+
+const tours = await Tour.find({   // returns an array of the documents
+  duration: 5,
+  difficulty: 'easy',
+}); 
+
+const tours = await Tour.find()
+      .where('duration')
+      .equals(5)
+      .where('difficulty')
+      .equals('easy');
+
+We can do this sort of chaining because all those methods belong to the Query class and Toru.find() returns a query object
+
+Spread syntax Destructuring
+- In js, if you say const var1 = obj1 then var1 will just point to obj1 and will not create a hard copy of the obj. so if you modify var1, you will also modify obj1. 
+  use destructuring to get a copy of the obj. 
+
+  const queryObj = {...req.query}  // will pull out all the remaing individual properties in the obj. pass all key:value pairs from an object
+
+  As soon as you await the query (using await Tour.find()) the query will execute and will come back with the documents. So, it we do it like that, you wont be able to implement paging or sorting
+  or other features. instead, you you have to save teh Tour.find() into a Query obj into a variable, then run whatever query methods on that obj, and only at the end you await the query. 
+- What we are trying to do in getAllTours is to create a Query obj so that we keep chaining extra methods to it. 
+
+Greater than or equal to. advanced filtering
+- http://localhost:3000/api/v1/tours?duration[gte]=5&difficulty=easy
+- queryStr.replace(/(gte|gt|lte|lt)\b/g) use the | for or. \b is to say only match these exact phrases, so it wont match a word with lte in it. teh g mean it will run teh regex multiple times
+
+Field Limiting
+- http://localhost:3000/api/v1/tours?fields=name,duration,difficulty,price
+- use field limiting to reduce bandwith of requests
+- use select operation. using select is called projecting
+- the default of select -__v is because we want to at least not include the __v property which mongoose auto adds since it is used internally
+- you can hide fields from the client permanently including the select: false property in the schema field you want to hide
+
+Pagination
+- if you want page 5 and each page is 10 items (the limit field), you skip the first 50 items and start quering the db
+- const limit = req.query.limit * 1 || 100    js feature to set default vals
+
+Ailasing
+- if there is a request that is used often, you can make an ailias for that route thats easy for the user to memorize
+- We minipulate the query object by using middleware functions to prefill the fields in the url
+  First the request goes through the /top-5-cheap route and then the aliasTopTours middleware gets executed. after teh fields are set in teh middleware, the getAllTours func 
+  gets run with all the params already set. 
