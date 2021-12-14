@@ -182,6 +182,7 @@ MVC architecture
     - managing requests and responses. more about technical stuff. a bridge between model and view layers
   - Bis logic Code that actually solves the business problem we set out to solve. Code directly related to how the bis works, what the bis needs, and the bisness rules
     - Creating new tours in the db. checking if user's password is correct, validating user input data. ensuring only users who bought a tour can review it. Code for when people use the product and services
+      Cslculating how many weeks are in a tour would be bis logic and belongs in teh model. this is because it has to do with the bis itself and not with responses, handlers, etc.
 - Fat models/thin controllers: offload as much logic as possible into the models and keep controllers as simple and lean as possible
 
 Old functions when using the json file foor testing
@@ -256,7 +257,7 @@ Filtering data
 There are multiple ways to use the db query
 
 let query = Tour.find(JSON.parse(queryStr));    This creates a Query object so that we can chain multiple methods from teh Query class to it and then execute it later with await
-
+                                                We use Tour.func() to access the Tour collection in  mongoDB
 const tours = await Tour.find({   // returns an array of the documents
   duration: 5,
   difficulty: 'easy',
@@ -305,3 +306,117 @@ Features class
 - we refactored the code so that all the api features are in their own class.
 - we need to return this at the end of each method so that we are able to chain mehtod after method. This is the object itself, which has access to all its own methods
 - we create a new object of the apifeatures class. we pass in the query object, and the query string that come from express. 
+
+Mongodb agreggation pipeline
+- a pipeline is a process where all the documents from a certian collectyion go through where they are processed step by step in ordert to transform them into aggregated resultys
+  use to calc averages, min, max distances etc.
+- pass in an array of stages that will get exe one at a time in order
+
+  const stats = await Tour.aggregate([   // returns an aggregate object
+      {
+        $match: { ratingsAverage: { $gte: 4.5 } },    // filters out certian documents. just like a query. usually just a preliminart stage to prepare for other stages
+      },
+      {
+        $group: {
+          _id: null,    // this is the field we want to group by. since we wants stats on all the docs we leave it null
+          avgRating: { $avg: '$ratingsAverage' },  //$avg and ttc are all mongodb operators. you need to use '$fieldName' just because its what aggregation pipline works
+          avgPrice: { $avg: '$price' },
+          minPrice: { $min: '$price' },
+          maxPrice: { $max: '$price' },
+        },
+      },
+      {
+        $sort: { avgPrice: 1 },  // the documets that get passedinto here are the ones that result from being processed in teh above stage. so all teh field names we used above have to be used here
+      },
+    ]);
+- you are also allowed to repeat stages
+- $Unwind. will create a copy of the document for each element in fiels's value.
+  for the start dates, there are 3 in a array, so it will copy each tour documet 3 times each with only one of the start dates
+
+- to group by the month use a aggregation pipeline operator $month: field (that you want to extract the date from)
+- we use $push to create an array of all the names of the tours that are grouped together. 
+- use $project: to prevent sending a field to tue user that they dont need 
+- use $addField because we expect to have another field named _id in the future?
+
+Virtual properties
+- properties you can add to a document that wont get saved to the db. good for things like kilometers, when you already have miles saved in the db. wont persist in the db but 
+  will be there when you get the data
+
+  tourSchema.virtual('durationWeeks').get(function () {
+    return this.duration / 7;
+});
+
+you have to use a reg function because you need access to the this keyword. arrow funcs dont have that. .this points to teh current document
+to get it to show up in the results, you have to add an options object into the schema definition
+{
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
+);
+
+Mongoose Middleware
+- Middleware funcs that run in response to a certian event like a doc being added to the db.
+- A hook is the event we are listening to. the 'save' in our function below. we call the fune a 'pre save hook' or pre save middleware
+
+- Document middleware.  Gives you access to the document that is being processed right before it is saved to the db
+  tourSchema.pre('save', function () {  // this one runs before the .save() and .create(). does not run on insertMany()
+    console.log(this);
+  });
+  
+  tourSchema.pre('save', function (next) { // can have multiple pre middlewares for the same hook
+    console.log('Will Save document...');
+    next();
+  });
+
+  tourSchema.post('save', function (doc, next) {  // has access to the doc that was just saved to the db ('doc'). post middlewares are exe after all teh pre middleware has completed
+    console.log(doc); // you dont have this anymore, but you do have the 'doc'
+    next();  // no longer needed, but is best pratice to always include it
+  });
+
+- Query Middleware: executes before any find query is exe
+  tourSchema.pre('find', function (next) {  // the this keyword will point at the current query and not the document for these
+    next();
+  });
+
+  tourSchema.post(/^find/, function (docs, next) {    // in post middleware you get access to all the 'docs' returned by the query. this middleware runs after teh query was already executed
+    console.log(`Query took ${Date.now() - this.start} millisec`);
+    console.log(docs);
+    next();
+  });
+
+- Aggregate middleware
+  What we are doing in this func is appending a group to the pipeline right in the beginning to omit the secret tours. doing this at the model level
+  we can just add another $match stage to the beginning of the pipeline array.
+
+    tourSchema.pre('aggregate', function (next) { runs before any aggregation pipeline
+    this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });  // unshift adds an element to the front of an array. 
+    
+    console.log(this.pipeline()); // shows the array of stages of teh pipeline
+    next();
+  });
+
+- Data validation
+  Checks whether the data given is in the right format for the document schema, and that values are entered for the required fields.
+  Sanitation. makes sure there is no milicous code being entered into the database. remove unwanted characters. never accept data coming from a user as it is
+
+  required: [true, 'A tour must have a name'],  this is a type of validator
+  maxlength: [40, 'A tour name must have less or equal to 40 chars'],
+  minlength: [10, 'A tour name must have at least 10 characters'],      these validators are only available for strings
+  enum validator works for strings
+  min and max validators for numbers and dates
+
+  - Custom Validators. these return true or false
+      priceDiscount: {
+          type: Number,
+          validate: {
+            validator: function (val) {  // func has access to the value that was passed in
+              return val < this.price;
+            },
+            message:
+              'Discount price ({VALUE}) should be less than the regular price',    /// message has access to the value as well. its just internal to mongoose
+          },
+        },
+  It turns out that this validator wont work on a update because the .this keyword only applies to NEW Document createion
+  Can also use a library called validator
+    const validator = require('validator');
+    validate: [validator.isAlpha, 'Tour name must only contain letters'],
