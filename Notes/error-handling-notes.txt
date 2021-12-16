@@ -1,0 +1,138 @@
+npm install ndb --save-dev
+also made a new debug script
+
+Debugging INtro
+ - Set a lot of breakpoints to pause the code
+ - Use ctrl-r to reload the code instead of shutting it down
+
+Unhandled routes
+ - app.all('*', (req, res, next) => {    // use .app to catch all http verbs
+    res.status(404).json({
+      status: 'fail',
+      message: `Cant find ${req.originalUrl} on this server`,
+    });
+    next();
+   });
+  We add this catch all to the bottom of the middleware stack. so, if a request
+  fails to go into any or our routes, it will end up here. We need to implement 
+  this so taht we don't send back html to the client Since this is a API. 
+
+Error Handling Overview
+  - Operational Errors: Problems we can predict will happen at some point in the future. So handle them 
+    in advance. Depend on the user, the system, or the network. nothing to do with the code
+    - invalid path accessed, invalid uder input (validator error form mongooose), failed to connect to server
+      failed to conn to db, request timeout
+  - Programming errors: reading an undefined var, using await without async, etc
+  - Basic Global Error handeling middleware
+
+    // Page not found catch all
+    app.all('*', (req, res, next) => {  // hits this middleware if it cant find the request
+      const err = new Error(`Cant find ${req.originalUrl} on this server!`);  // we are createing a new error to be used in the next error handeling middleware. 
+      err.status = 'fail';   // we are giving teh error object custom properties to use in the next func.
+      err.statusCode = 404;
+
+      next(err);
+    });
+
+    app.use((err, req, res, next) => {   // Specify 4 parameters in the middleware func, and express already knows that it is a error handle middleware
+      err.statusCode = err.statusCode || 500;
+      err.status = err.status || 'error';
+
+      res.status(err.statusCode).json({
+        status: err.status,
+        message: err.message,
+      });
+    });
+
+
+
+  AppError Class
+  - this.isOperational = true;  // we will use this property to tell later down the line if the error recieved was one we handled or if it was a wild error from another module etc. if it was an error we created ourselves
+
+    console.log(err.stack);  // way to see the stack strace. its part of the error object
+    Error.captureStackTrace(this, this.constructor);  // we want to preserve the stack trace of the error. for this method you need to pass in the current object and the AppError class itself without adding in our AppError class into the stack track
+
+  Global Error Handler
+  - app.use(globalErrorHandler);
+    If we define a middleware function with 4 parameters, Node will automatically use it as a error handeling middleware. 
+    The way we propogate Errors is by passing a value into next(). Express automatically assumes the value is an error and will sent the passed in val to the error handling middleware
+  - If there is ever any error in any or our middleware functions, express will automatically send it to the globalErrorHandler. even uncaught exceptions
+
+  TourController Refactor
+  - We want to get rid of the try catch in all of our handlers, so we move the error handling into a wrapper function a layer above. 
+
+  const catchAsync = (fn) => {
+    fn(req, res, next).catch((err) => next(err));   // the function we pass always returns a promise. so we can use .catch on that promise. 
+  };
+
+  // exports.createTour = async (req, res,) => {  // old version
+  exports.createTour = catchAsync(async (req, res, next) => {     // Added in the next parameter to our function so that we are able to pass in the error if it occurs. only way to pass the err is like next(err) We are also wrapping the entire func into catchAsync                                                          
+    console.log(req.body);
+    const newTour = await Tour.create(req.body);
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        tour: newTour,
+      },
+    });
+  });
+
+  the problem with this waw is that we are immedietly calling catchAsync when we define createTour because we use the () with the function. and then catchAsync immedietly calles the passed in
+  function. we dont want the funct to be called right away, only want the passed in func to run when the route calls it. Also, the req, res, next needed in catchAsync are not defined because 
+  we only pass in teh function and not those values. the solution is to make catchAsync return another function. and this func will get assigned to createTour. This funct can later get called when necessarray
+
+  const catchAsync = (fn) => {
+    return (req, res, next) => {
+      // fn(req, res, next).catch((err) => next(err));
+      fn(req, res, next).catch(next);   // You can shorthand the arrow func here since in JS it will automatically call the function with whatever value that is passed in from the catch. 
+    };
+  };
+
+  we are returning a anonomous function that takes 3 pareameters. this function will call teh function we origionally passed in (fn) with those 3 parameters. since this func we pass in 
+  returns a promise, we can use .catch().  
+
+  you can also just put catchAsync in the router. the problem with this is taht you will need to remeber which functions are actually async functions
+  
+  router
+    .get(catchAsync(tourController.getAllTours))
+
+404 Errors
+ - If you were to search for tour by ID and just slightly change the ID, you will get a successful request but null data. 
+    if (!tour) {
+        return next(new AppError('No tour found with that ID', 404));    // giving the next() anything, node assumes that it is an Error
+      }
+
+Production vs Development errors
+ - in production, we want to reduce the amount of info the client has about any errors. in Development, we want as much info as possible. 
+ - We also mark whether or not an error is operational, meaning its one we created. a non operational error is unknown and we dont want to leak any potentially hazardous data to the client
+   for tehse we just send back a generic error message to the client, and just log the error in our own logs
+ - some mongoose errors we want to mark as Operational, like a invalid ID being searched (CastError), or a duplicate name for a tour (duplicate key), or validation errors (ratings = 6, or difficulty = whatevere)
+ - 
+  if ((error.name = 'CastError')) error = handleCastErrorDB(error);
+
+  const handleCastErrorDB = (err) => {
+    const message = `Invalid ${err.path}: ${err.value}`;
+    return new AppError(message, 400);  // we convert the mongo error into our custom error that has the operational flag marked as true. and give it a better message
+  };
+  
+  let error = { ...err };   // we make a copy of the error object that was propogated up. thing is that we dont copy all the properties that the object has. i think all the properties of the parent class of the old object are not included in the copy
+
+  if (err.name === 'CastError') error = handleCastErrorDB(err); // must pass in the origional error to access its properties
+  if (err.code === 11000) error = handleDuplicateFieldsDB(err); // Error passed up by mongo so no name property
+  if (err.name === 'ValidationError') error = handleValidationErrorDB(err);
+
+- Unhandled Rejected promise  (catch all for all unhandled asyncronous errors)
+   -  process.on('unhandledRejection', (err) => {   // we add a listener for a unhandledRejection
+      console.log(err.name, err.message);
+      console.log('UNHANDLED REJECTION Shutting Down');
+      server.close(() => {     // the only thing we can do is shut down the server. IRL there will be some way to auto restart the server after it goes down
+        process.exit(1);          this is the best way to shut down node. use server.close to finish up any ongoing requests and then finally close it down with process.exit. the 1 means
+                                  there was an unhandled exception. 
+      });
+    });
+
+  - crashing the app in an rejected promise is optional
+
+- Catching uncaught exceptions
+  - crashing the app is needed here. if in this situation, the entire node process is in an "unclean" state. the process needs to terminate and then be restarted
