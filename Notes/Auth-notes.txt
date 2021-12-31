@@ -1,0 +1,260 @@
+Encryption
+  - npm i bcrypt
+
+    this.password = await bcrypt.hash(this.password, 12);
+    this.passwordConfirm = undefined;
+
+    we encrypt teh password in a middware right before it is saved in the db. 12 cost is fine for modern computers
+    set this.passwordConfirm to undefined to essentially delete it before we save the doc to the db. we no longer need it it
+    was only for ensureing teh user entered the correct password. 
+
+JWT
+  - JSON Web token. A Stateless solution to Auth
+    1) a user sends a POST request with the login details. 
+    2) Chekd if user exists and if pass is correct. A unique JWT for only that user is created using a secret string saved on the server.
+    3) server sends JWT back to teh client, client stores it in a cookie or local storage. User is authenticated and is logged into the server. 
+    The server doesn't know what users are logged in but user knows he is logged in
+    4) Whenever the user wants to accsess a protected route, he sends his JWT along with teh request
+    5) if Valid JWT allow accsess and send requested data back to the client
+
+    A JWT consists of a header (metadata about the token), the payload (data being sent?), and the secret string from the server. All three of these items
+    are used to create a unique signature for only that data and that secret and that header
+
+    to verify that the JWT is unaltered, teh server takes the header+payload and the secret string and makes a 'test signature' to compare against the origional sig.
+    if the sigs are off, it means teh payload has been tampered with, also without the secret string, the tampered signature will always fail the test
+
+Security flaw
+  - const newUser = await User.create(req.body);
+    
+    This line of code will allow somebody to sign up to our app as an admin! needs to be replaced with this
+
+    const newUser = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: req.body.password,
+      passwordConfirm: req.body.passwordConfirm,
+    });
+
+    if we want to register a admin in the future, we cant do it from this route. but we can juse edit it in the mongo. 
+
+Sign up
+  - npm i jsonwebtoken to install JWT
+  - in config file
+    JWT_SECRET= You should at least use 32 chars in the secret string. Store it in the config file
+    JWT_EXPIRES_IN=90d  can also put 10h 5m 3s
+
+  - AFter account creation, we log the user in Valid
+    
+    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    }); 
+
+    res.status(201).json({
+      status: 'success',
+      token,     /// Sen\d back the token here user is logged in
+      data: {
+        user: newUser,
+      },
+    });
+  });
+
+Login
+   - 
+   exports.login = (req, res, next) => {
+    const { email, password } = req.body;
+
+    // 1) Chek if email and password exist
+    if (!email || !password) {
+      return next(new AppError('Please provide email and password', 400));      // Must return here since the password user check failed want to exit the func right away and not continue to the res
+    }
+
+    // 2) Check if user exist ands pass is correct
+      const user = await User.findOne({ email }).select('+password');    // We have to manually select the password fiels since we hide it from selects from the schema definition
+    
+    In order to compare the passwords. we cant compare the passed in pass to the one in the DB since it is already encrypted.
+    Solution is to encrypt the passed in pass and then compare it to the db pass. Do this with an Instance Method in the model bc it has to do with data
+    The function does not have access to .this.password since we set password to not select in the schema. so we have to pass in the values
+
+    return await bcrypt.compare(candidatePassword, userPassword);
+
+Authentication Workflow
+  - Login: post request with credintials -> we create a JWT if good creds -> send back the JWT as res -> user saves the JWT to use as a passport
+  - Access: Use Protected routes. if a user requsts a route, before we run the controller for that route we make sure the user is logged in
+
+Protected Routes
+  - const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    promisify(jwt.verify), this part returns a function that returns a promise. then in (token, process.env.JWT_SECRET) we actually call the function
+
+    In our password verification code. we actually add the user to the res object. this is important because it will come in handy down the line
+    
+    req.user = currentUser;
+
+Postman Changes
+  - Changed the environment to dev:natours so that we can have a different url var {{URL}} at the front of our requests for either production or development environment
+  - added a script to programatically change the jwt for the protected routes. Go to the "tests" tab and click on "set an environment variable". we pull teh .token property from 
+    the response object and set that as an env var. 
+    
+    pm.environment.set("jwt", pm.response.json().token);
+
+    Use this script in both login and sign up. 
+
+Authorization
+  - Checking to see if a certian user has the rights to interact with a certian resource
+  - We need a middleware func that takes the users role as a parameter. for taht, we wrap the middlware in a wrapper function that takes the argument (the roles)
+    The ammount of roles a user has is arbituraryso we use teh rest parameter syntax ...roles. this will create an array of all the arguments passed to it
+
+    // In tour routes we call first protect, to make sure the user is logged in. and then call restrictTo which we pass in teh roles that are allowed to use the delete tour route
+    .delete(
+      authController.protect,
+      authController.restrictTo('admin', 'lead-guide'),  
+      tourController.deleteTour
+    )
+    // When we go to teh deleteTour route it will call restrictTo, this func will return the middleware func inside of it. 
+
+    exports.restrictTo =
+      (...roles) =>
+      (req, res, next) => {
+        // roles ['admin', 'lead-guide']
+        if (!roles.includes(req.user.role)) {  // This is only possible to get the user obj because we actually stored it on the middleware form before. 
+          return next(
+            new AppError('You do not have permission to perform this action', 403)
+          );
+        }
+        next();
+      };
+
+Password reset
+  - We follow the procedure where a user enters the forgot password route which then sends a user a email with the temp pass (token) which takes them to the resetPassword route
+  - we encrypt the passResetToken because we are going to store the encrypted token to our DB. this is so that when the user enters the reset pass route and gives up their unencrypted pass
+    we can compare it to teh one saved in the db. This is so that if a hacker had access to the DB, they would not be able to use the encrypted pass in the db to reset an account. 
+
+  - If you dont add this line, when we try to update the user in the db, it will try to run the validation again 
+    
+    await user.save({ validateBeforeSave: false });
+  - ITS IMPORTANT to always run save and not do findOneAndUPdate() when working with passwords because we always want to run the validators over again after updating the password
+
+
+Modemailer
+  - The transporter is like the service that will actually send teh email. something like gmail. 
+  - sign up for mailtrap to fake sending emails to clietns so that we can look at them 
+  - const sendEmail = (options) => {
+      // 1) create a transporter
+      const transporter = nodemailer.createTransport({
+        service: 'Gmail',
+        auth: {
+          user: process.env.EMAIL_USERNAME,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+        // Activate in gmail "less secure app" option to use gmail
+      });
+
+Update Password
+ - user.password = newPassword;
+    user.passwordConfirm = newPasswordConfirm;
+    await user.save();
+    // await user.findByIdAndUpdate(); 
+    
+    Remeber that you cant use a function like this because our validators will not work. this is because this.password wont be defined in the password confirm field ant all the other middlewares.
+
+    alsu use patch and not post since we are minipulationg the document
+
+Update Me func
+- we cant really use User.save() since some of our fields are required. the app will throw an error if we dont include all the required fields. 
+ 
+  const user = await User.findById(req.user.id);
+  user.name = 'JJfasdfasdf';
+  await user.save();
+
+- instead now we can use findByIdAndUpdate(); 
+- const updatedUser = await User.findByIdAndUpdate(req.user.id, req.body, {
+    new: true, // return the new document
+    runValidators: true, // ensure all updated fields are in the proper formats
+  });
+
+  This way is bad because the user could simple put somethjing like "role": "admin" into their request. we have to check the data we update before we actually add it to teh database
+
+Security Best Pratices
+- Compromised database
+  - Strongly encrypt passwords with salt and hash (bcrypt). Also encrypt password reset tokens
+- Brute force attacks
+  - use bcrypt to make login requests really slow
+  - implement rate limiting limits the # of requests coming from one single IP
+  - implement maximum login attempts
+- Cross-site scripting (xss) attacks
+  - Attacker tries to inject scripts into our page to run his malicious code. 
+  - allows attacker to read the local storage which is why we should never store the JWT in local storage
+  - Store JWT in a HTTPOnly cookie. so taht the browser can send and recieve the cookie, but cannot access or modify it in any way
+  - sanitize user input data and include special http headers
+- Denial-of-service (DOS) attack 
+  - Attacker sends so many requests to the server until the server breaks down and app becomes unavailable
+  - limit amount of data that can be sent in the body of a post. 
+  - implement rate limiting like before
+  - avoid evil regular expressions
+- NOSQL Query Injection Attacker
+  - Instead of a user inputing valid data, he injectss some query in order to create query expressions that translate to true. Like being able to log in even without providing a valid username or password
+  - Using mongoose is a good idea because a good schema makes sure each value has a well defined data type. Which makes these types of attacks very difficult
+
+- Best Pratices and Suggestions
+  - In a production app all communication between client and server needs to happen over HTTPS. otherwise anybody can listen in to the conversation and steal our JWT
+  - Always create random password tokens. not generated with dates or the like. always give them expiry dates. These reset tokens are effectively passwords. so treat them as such
+  - Make sure a JWT is no longer valid after a user has changed his password (revoke the token as soon as the user changes his password)
+  - Never commit a config data to Git. or upload it anywhere
+  - whenever there is an error, do not sent teh entire error to the client, things like the stack track could give attacker valuable insights into the system
+  - Suggestions 
+    - prevent cross-site request forgery using the csurf package
+    - require the user to requthenticate before a highvalue actions like deleting something or making a payment
+    - implement a blacklist of untrusted JWTs
+    - confirm the users email address after first creating a account
+    - Keep a user logged in with refresh tokens. Keep remebering users untill they logg out. 
+    - implement 2 factor authentication. after performing one action to log into the app, the user then has to do a 2nd action to really get authenticated. insert a code sent by txt to a phone
+  - Prevent parameter pollution causing uncaught exceptions
+
+- JWT via cookie
+  - A cookie is a piece of text that the server sends to the client.When client recieves a cookie the browser will automatically store it and send it back with each future request back to the server
+  - res.cookie('jwt', token, cookieOptions);
+    teh name we use 'jwt' is unique and if we create another cookie wiuth that name the old one will get overwritten. if we careate 2 new users, there will only be one cookie at teh end with the namne jwt
+
+- Rate limiting
+  - helps prevent DOS or brute force attacks
+  - make a global middleware that counts the number of requests coming from a single ip 
+  - in app.js
+    const rateLimit = require('express-rate-limit').default; // needed .default for some reason
+    
+    const limiter = rateLimit({
+      max: 100,
+      windowM: 60 * 60 * 1000, // will allow 100 requests form the same ip in one hour
+      message: 'Too many requests form this IP, please try again in one hour',
+    });
+    app.use('/api', limiter);
+
+    needed to add this to ES lint
+    "import/resolver": {
+    "node": {
+      "extensions": [".js", ".jsx", ".ts", ".tsx"]
+    }
+  }
+
+More security packages
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+
+// Set Secruity HTTP headers
+app.use(helmet()); // the helmet function returns a function
+
+
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// DAata sanitization against XSS
+app.use(xss());
+
+Parameter pollution
+  - if you had this situation in the query string, node will not make the sort field a string like the code is expecting, but it will make it an array. this will cause an error
+    
+    {{URL}}api/v1/tours?sort=duration&sort=price
+
+  - use middleware to remove duplicate fields
+    npm i hpp  (http parameter pollution)
+
+    the whitelist is so that we allow some duplicate parameters to be searched for like price. its ok to search for price=5&price=10 we will get all teh tours with those prices

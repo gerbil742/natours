@@ -147,7 +147,7 @@ Greater than or equal to. advanced filtering
 Field Limiting
 - http://localhost:3000/api/v1/tours?fields=name,duration,difficulty,price
 - use field limiting to reduce bandwith of requests
-- use select operation. using select is called projecting
+- use select operation. using select is called projecting. Select means that we choosse certian fields we want in the output
 - the default of select -__v is because we want to at least not include the __v property which mongoose auto adds since it is used internally
 - you can hide fields from the client permanently including the select: false property in the schema field you want to hide
 

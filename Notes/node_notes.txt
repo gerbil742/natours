@@ -117,10 +117,17 @@ Environment Variables & config files
     "start:prod": "NODE_ENV=production nodemon server.js" 
   }
 
+Implicit Return form callback arrow function
+  - if you are only returning one thing in a callback function es6 will accept not having any curly braces {} and will implicitly return the value after the arrow
+    const handleJWTExpiredError = (err) =>
+      new AppError('Your token has expired. Please log in again', 401);   // the AppError is implicitly returned
+
 
 STATUS codes
 - 404 Page not found
 - 400 Bad request
+- 401 not authorized
+- 403 forbidden
 - 500 internal server error
 - 200 Success
 - 201 Created
